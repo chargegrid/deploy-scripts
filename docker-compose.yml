@@ -1,0 +1,203 @@
+version: '2'
+services:
+
+  # ------------------------------
+  # RabbitMQ
+  # ------------------------------
+  rmq_data:
+    image: busybox
+    volumes:
+      - /var/lib/rabbitmq
+  rmq:
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    image: rabbitmq:3-management
+    logging:
+      driver: "none"
+    volumes_from:
+      - rmq_data
+
+  rmq_exchanges:
+    image: tutum/curl:latest # image with curl installed
+    links:
+      - rmq
+    volumes:
+      - .:/app
+    command: "/app/create-exchanges.sh"
+
+  # ------------------------------
+  # Elasticsearch
+  # ------------------------------
+
+  es_data:
+    image: busybox
+    volumes:
+      - /usr/share/elasticsearch/data
+
+  elasticsearch:
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    image: docker.elastic.co/elasticsearch/elasticsearch:5.4.0
+    environment:
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    mem_limit: 1g
+    # volumes_from:
+    #   - es_data
+
+  # ------------------------------
+  # Dynamo
+  # ------------------------------
+  dynamodb:
+    ports:
+      - "8000:8000"
+    logging:
+      driver: "none"
+    image: deangiberson/aws-dynamodb-local
+
+  # ------------------------------
+  # Postgres Transaction Service
+  # ------------------------------
+
+  transaction_service_postgres_data:
+    image: busybox
+    volumes:
+      - /var/lib/postgresql/data
+
+  transaction_service_postgres:
+    image: postgres:9.6
+    logging:
+      driver: "none"
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: txservice
+      POSTGRES_USER: txservice
+      POSTGRES_DB: txservice
+    volumes_from:
+      -  transaction_service_postgres_data
+
+  # ------------------------------
+  # Postgres Charge Box Service
+  # ------------------------------
+
+  charge_box_service_postgres_data:
+    image: busybox
+    volumes:
+      - /var/lib/postgresql/data
+
+  charge_box_service_postgres:
+    image: mdillon/postgis:9.6
+    logging:
+      driver: "none"
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_PASSWORD: cbservice
+      POSTGRES_USER: cbservice
+      POSTGRES_DB: cbservice
+    volumes_from:
+      -  charge_box_service_postgres_data
+
+  # ------------------------------
+  # Postgres Pricing Service
+  # ------------------------------
+
+  pricing_service_postgres_data:
+    image: busybox
+    volumes:
+      - /var/lib/postgresql/data
+
+  pricing_service_postgres:
+    image: postgres:9.6
+    ports:
+      - "5434:5432"
+    logging:
+      driver: "none"
+    environment:
+      POSTGRES_PASSWORD: prservice
+      POSTGRES_USER: prservice
+      POSTGRES_DB: prservice
+    volumes_from:
+      -  pricing_service_postgres_data
+
+  # ------------------------------
+  # Backend, baby!
+  # ------------------------------
+
+  central-system:
+    image: central-system:latest
+    environment:
+      - VIRTUAL_HOST=cb.chargegrid.dev
+    links:
+      - rmq
+      - dynamodb
+      - charge-box-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      - rmq_exchanges
+
+  charge-box-service:
+    image: charge-box-service:latest
+    links:
+      - charge_box_service_postgres:postgres
+      - rmq
+    depends_on:
+      - rmq_exchanges
+
+  transaction-service:
+    image: transaction-service:latest
+    links:
+      - rmq
+      - transaction_service_postgres:postgres
+    depends_on:
+      - rmq_exchanges
+
+  pricing-service:
+    image: pricing-service:latest
+    links:
+      - rmq
+      - pricing_service_postgres:postgres
+    depends_on:
+      - rmq_exchanges
+
+  log-service:
+    image: log-service:latest
+    links:
+      - rmq
+      - elasticsearch
+    depends_on:
+      - rmq_exchanges
+
+  receptionist:
+    image: receptionist:latest
+    links:
+      - transaction-service
+      - pricing-service
+      - central-system
+      - charge-box-service
+    ports:
+      - "8075:8075"
+    environment:
+      - VIRTUAL_HOST=api.chargegrid.dev
+
+  # ------------------------------
+  # Proxying all the things
+  # ------------------------------
+
+  nginx-proxy:
+    image: jwilder/nginx-proxy
+    container_name: nginx-proxy
+    logging:
+      driver: "none"
+    ports:
+      - "80:80"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro

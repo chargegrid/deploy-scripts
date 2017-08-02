@@ -1,0 +1,5 @@
+temp-demo-install.sh
+temp-docker-compose-demo.yml
+terraform.tfstate
+terraform.tfstate.backup
+terraform.tfvars
