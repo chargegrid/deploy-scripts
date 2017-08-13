@@ -1,7 +1,7 @@
 # Deploy scripts
 
 This is a collection of scripts to deploy a production version of ChargeGrid, either locally, or on AWS. You can build 
-production Docker images of all services and the portal with these scripts, and deploy those images.
+production Docker images of all services with these scripts, and deploy those images.
 
 ## Use locally
 
@@ -55,14 +55,14 @@ Using Terraform, you can easily deploy a production version of ChargeGrid on Ama
 - In the prepare-install-scripts.sh, set the desired domain name
 - Create an Elastic IP on AWS and take note of the Allocation ID
 - In the DNS configuration of your domain, add the following records, pointing to your Elastic IP: `cb`, `api` and `platform`
-- On AWS Elastic Container Registry create repositories with the following names: central-system, transaction-service, log-service, pricing-service, receptionist, charge-box-service, portal
-- Make sure that in the portal source code `public/config-deployed.js` contains the proper domain name
+- On AWS Elastic Container Registry create repositories with the following names: central-system, transaction-service, log-service, pricing-service, receptionist, charge-box-service
 - In the directory where the deploy-scripts reside, create a file `terraform.tfvars` with the following:
 
 ```
 access_key = "<access-key>"
 secret_key = "<secret-key>"
 elastic_ip_id = "<allocation id of Elastic IP>"
+domain = "<domain name for ChargeGrid>"
 ```
 
 This file will is in the `.gitignore`, so it will not be committed. Your secrets are safe!
@@ -70,7 +70,7 @@ This file will is in the `.gitignore`, so it will not be committed. Your secrets
 **Automatically build and deploy everything**
 
 ```
-$ ./deploy-and-build-all.sh
+$ ./deploy-and-build-all.sh <domain-name>
 ```
 
 **Run each step manually**

@@ -110,16 +110,16 @@ resource "aws_instance" "demo" {
   }
 
   provisioner "local-exec" {
-    command = "./prepare-install-scripts.sh"
+    command = "./prepare-install-scripts.sh ${var.domain}"
   }
 
   provisioner "file" {
-    source      = "temp-demo-install.sh"
+    source      = "temp-prod-install.sh"
     destination = "install.sh"
   }
 
   provisioner "file" {
-    source      = "temp-docker-compose-demo.yml"
+    source      = "temp-docker-compose-prod.yml"
     destination = "docker-compose.yml"
   }
 

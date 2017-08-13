@@ -19,3 +19,7 @@ variable "elastic_ip_id" {
   description = "The Allocation ID of the Elastic IP you want to associate with the demo instance"
   default = "<EIP ID>"
 }
+variable "domain" {
+  description = "The domain to which ChargeGrid will be deployed"
+  default = "chargegrid.io"
+}
